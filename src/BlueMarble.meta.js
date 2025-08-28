@@ -19,8 +19,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      nominatim.openstreetmap.org
 // @connect      wplace.live
-// @connect      wplace.lol
-// @resource     CSS-BM-File https://raw.githubusercontent.com/allanf181/Wplace-SkirkMarble/fcd6c936c241cb8a1bb5136345b735bedc863c09/dist/BlueMarble.user.css
+// @resource     CSS-BM-File https://raw.githubusercontent.com/allanf181/Wplace-SkirkMarble/main/dist/BlueMarble.user.css
 // ==/UserScript==
 
 // Wplace  --> https://wplace.live
