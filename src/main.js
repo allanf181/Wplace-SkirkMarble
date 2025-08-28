@@ -2441,7 +2441,7 @@ function showTemplateManageDialog(instance) {
 
           if (latLng) {
             flyToLatLng(latLng.lat, latLng.lng)
-
+              document.body.removeChild(overlay)
             // const teleportUrl = `https://wplace.live/?lat=${latLng.lat}&lng=${latLng.lng}&zoom=14.202666470770193`;
             //
             // // Open in same tab to teleport

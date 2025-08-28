@@ -1,10 +1,11 @@
 {
   "name": "wplace-bluemarble",
-  "version": "0.90.0",
-  "author": "Seris0",
+  "version": "0.90.1",
+  "author": "allanf181",
   "contributors": [
     "Hao-1337",
-    "pixelkat5"
+    "pixelkat5",
+    "Seris0"
   ],
   "type": "module",
   "scripts": {
