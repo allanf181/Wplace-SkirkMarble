@@ -29,7 +29,7 @@ function inject(callback) {
     script.remove();
 }
 
-function flyTo(lat, lng) {
+function flyToLatLng(lat, lng) {
     console.log(`🚀 Flying to lat: ${lat}, lng ${lng}!`, lat, lng);
     unsafeWindow.bmmap.flyTo({
         center: [lng, lat],
@@ -2440,7 +2440,7 @@ function showTemplateManageDialog(instance) {
           const latLng = canvasPosToLatLng(coordinates);
 
           if (latLng) {
-            flyTo(
+            flyToLatLng(
                 {
                     center: [latLng.lng, latLng.lat],
                     zoom: 16,
@@ -2946,7 +2946,7 @@ function buildOverlayMain() {
 
                   const zoom = 16;
                   const [lat, lng] = coordsToLatLng(coordTlX, coordTlY, coordPxX, coordPxY);
-                  flyTo({
+                  flyToLatLng({
                       center: [lng,lat],
                       zoom: zoom
                   });
@@ -10170,7 +10170,7 @@ function createSearchWindow() {
   }
 
   function navigateToLocation(lat, lon) {
-    flyTo(
+    flyToLatLng(
         {
             center: [parseFloat(lon), parseFloat(lat)],
             zoom: 16,
