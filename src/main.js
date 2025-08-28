@@ -2939,7 +2939,6 @@ function buildOverlayMain() {
                   const coordPxX = Number(document.querySelector('#bm-input-px').value);
                   const coordPxY = Number(document.querySelector('#bm-input-py').value);
 
-                  const zoom = 16;
                   const [lat, lng] = coordsToLatLng(coordTlX, coordTlY, coordPxX, coordPxY);
                   flyToLatLng(lat, lng);
               }
