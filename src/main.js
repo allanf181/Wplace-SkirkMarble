@@ -2432,7 +2432,7 @@ function showTemplateManageDialog(instance) {
           const latLng = canvasPosToLatLng(coordinates);
 
           if (latLng) {
-            window.bmmap.flyTo(
+            unsafeWindow.bmmap.flyTo(
                 {
                     center: [latLng.lng, latLng.lat],
                     zoom: 16,
@@ -2938,7 +2938,7 @@ function buildOverlayMain() {
 
                   const zoom = 16;
                   const [lat, lng] = coordsToLatLng(coordTlX, coordTlY, coordPxX, coordPxY);
-                  window.bmmap.flyTo({
+                  unsafeWindow.bmmap.flyTo({
                       center: [lng,lat],
                       zoom: zoom
                   });
@@ -10162,7 +10162,7 @@ function createSearchWindow() {
   }
 
   function navigateToLocation(lat, lon) {
-    window.bmmap.flyTo(
+    unsafeWindow.bmmap.flyTo(
         {
             center: [parseFloat(lon), parseFloat(lat)],
             zoom: 16,
