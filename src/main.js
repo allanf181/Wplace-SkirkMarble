@@ -32,8 +32,8 @@ function inject(callback) {
 function flyToLatLng(lat, lng) {
     console.log(`🚀 Flying to lat: ${lat}, lng ${lng}!`, lat, lng);
     unsafeWindow.bmmap.flyTo({
-        center: [lng, lat],
-        zoom: 16,
+        'center': [lng, lat],
+        'zoom': 16,
     })
 }
 
