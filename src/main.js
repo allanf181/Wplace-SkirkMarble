@@ -2934,10 +2934,10 @@ function buildOverlayMain() {
                       let lng = metersX / ys * 180
                       return [lat, lng]
                   }
-                  const coordTlX = document.querySelector('#bm-input-tx');
-                  const coordTlY = document.querySelector('#bm-input-ty');
-                  const coordPxX = document.querySelector('#bm-input-px');
-                  const coordPxY = document.querySelector('#bm-input-py');
+                  const coordTlX = Number(document.querySelector('#bm-input-tx').value);
+                  const coordTlY = Number(document.querySelector('#bm-input-ty').value);
+                  const coordPxX = Number(document.querySelector('#bm-input-px').value);
+                  const coordPxY = Number(document.querySelector('#bm-input-py').value);
 
                   const zoom = 16;
                   const [lat, lng] = coordsToLatLng(coordTlX, coordTlY, coordPxX, coordPxY);
