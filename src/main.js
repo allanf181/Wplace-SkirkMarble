@@ -29,6 +29,14 @@ function inject(callback) {
     script.remove();
 }
 
+function flyTo(lat, lng) {
+    console.log(`🚀 Flying to lat: ${lat}, lng ${lng}!`);
+    unsafeWindow.bmmap.flyTo({
+        center: [lng, lat],
+        zoom: 16,
+    })
+}
+
 /** What code to execute instantly in the client (webpage) to spy on fetch calls.
  * This code will execute outside of TamperMonkey's sandbox.
  * @since 0.11.15
@@ -2432,7 +2440,7 @@ function showTemplateManageDialog(instance) {
           const latLng = canvasPosToLatLng(coordinates);
 
           if (latLng) {
-            unsafeWindow.bmmap.flyTo(
+            flyTo(
                 {
                     center: [latLng.lng, latLng.lat],
                     zoom: 16,
@@ -2938,7 +2946,7 @@ function buildOverlayMain() {
 
                   const zoom = 16;
                   const [lat, lng] = coordsToLatLng(coordTlX, coordTlY, coordPxX, coordPxY);
-                  unsafeWindow.bmmap.flyTo({
+                  flyTo({
                       center: [lng,lat],
                       zoom: zoom
                   });
@@ -10162,7 +10170,7 @@ function createSearchWindow() {
   }
 
   function navigateToLocation(lat, lon) {
-    unsafeWindow.bmmap.flyTo(
+    flyTo(
         {
             center: [parseFloat(lon), parseFloat(lat)],
             zoom: 16,
