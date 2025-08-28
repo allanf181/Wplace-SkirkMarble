@@ -7,9 +7,9 @@
 // @license      MPL-2.0
 // @supportURL   https://discord.gg/tpeBPy46hf
 // @homepageURL  https://github.com/Seris0/Wplace-BlueMarble
-// @icon         https://raw.githubusercontent.com/Seris0/Wplace-BlueMarble/fcd6c936c241cb8a1bb5136345b735bedc863c09/dist/assets/Favicon.png
-// @updateURL    https://raw.githubusercontent.com/Seris0/Wplace-BlueMarble/main/dist/BlueMarble.user.js
-// @downloadURL  https://raw.githubusercontent.com/Seris0/Wplace-BlueMarble/main/dist/BlueMarble.user.js
+// @icon         https://raw.githubusercontent.com/allanf181/Wplace-SkirkMarble/fcd6c936c241cb8a1bb5136345b735bedc863c09/dist/assets/Favicon.png
+// @updateURL    https://raw.githubusercontent.com/allanf181/Wplace-SkirkMarble/main/dist/BlueMarble.user.js
+// @downloadURL  https://raw.githubusercontent.com/allanf181/Wplace-SkirkMarble/main/dist/BlueMarble.user.js
 // @run-at       document-start
 // @match        *://*.wplace.live/*
 // @grant        GM_getResourceText
@@ -20,7 +20,7 @@
 // @connect      nominatim.openstreetmap.org
 // @connect      wplace.live
 // @connect      wplace.lol
-// @resource     CSS-BM-File https://raw.githubusercontent.com/Seris0/Wplace-BlueMarble/fcd6c936c241cb8a1bb5136345b735bedc863c09/dist/BlueMarble.user.css
+// @resource     CSS-BM-File https://raw.githubusercontent.com/allanf181/Wplace-SkirkMarble/fcd6c936c241cb8a1bb5136345b735bedc863c09/dist/BlueMarble.user.css
 // ==/UserScript==
 
 // Wplace  --> https://wplace.live

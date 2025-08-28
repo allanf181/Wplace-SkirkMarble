@@ -25,7 +25,7 @@
 /* Smooth transitions for minimize/maximize functionality */
 #bm-contain-userinfo,
 #bm-overlay hr,
-#bm-contain-automation, 
+#bm-contain-automation,
 #bm-contain-buttons-action {
   transition: opacity 0.2s ease, height 0.2s ease;
 }
@@ -352,7 +352,7 @@ input[type="file"][id*="template"] {
 
 /* CRITICAL: Remove red borders from HTML5 validation on coordinate inputs */
 #bm-input-tx:invalid,
-#bm-input-ty:invalid, 
+#bm-input-ty:invalid,
 #bm-input-px:invalid,
 #bm-input-py:invalid {
   border: none !important;
@@ -456,7 +456,7 @@ input[type="file"][id*="template"] {
 
 #bm-contain-coords #bm-contain-inputs {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
   align-items: center;
   gap: .5rem;
 }
@@ -576,7 +576,7 @@ div:has(> #bm-input-file-template) > button {
   border-radius: .25rem;
 
   transition: background-color 0.25s;
-  
+
   /* Handle text overflow */
   white-space: nowrap;
   overflow: hidden;
