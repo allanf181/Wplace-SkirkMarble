@@ -2440,12 +2440,7 @@ function showTemplateManageDialog(instance) {
           const latLng = canvasPosToLatLng(coordinates);
 
           if (latLng) {
-            flyToLatLng(
-                {
-                    center: [latLng.lng, latLng.lat],
-                    zoom: 16,
-                }
-            )
+            flyToLatLng(latLng.lat, latLng.lng)
 
             // const teleportUrl = `https://wplace.live/?lat=${latLng.lat}&lng=${latLng.lng}&zoom=14.202666470770193`;
             //
@@ -2946,10 +2941,7 @@ function buildOverlayMain() {
 
                   const zoom = 16;
                   const [lat, lng] = coordsToLatLng(coordTlX, coordTlY, coordPxX, coordPxY);
-                  flyToLatLng({
-                      center: [lng,lat],
-                      zoom: zoom
-                  });
+                  flyToLatLng(lat, lng);
               }
           } ).buildElement()
         .buildElement()
@@ -10170,12 +10162,7 @@ function createSearchWindow() {
   }
 
   function navigateToLocation(lat, lon) {
-    flyToLatLng(
-        {
-            center: [parseFloat(lon), parseFloat(lat)],
-            zoom: 16,
-        }
-    )
+    flyToLatLng(lat, lon)
     // const zoom = 14.62;
     // const url = `https://wplace.live/?lat=${lat}&lng=${lon}&zoom=${zoom}`;
     // console.log('Opening URL:', url);
