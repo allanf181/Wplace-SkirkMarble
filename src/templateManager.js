@@ -1,5 +1,6 @@
 import Template from "./Template";
 import { base64ToUint8, uint8ToBase64, numberToEncoded, consoleLog, consoleError, consoleWarn } from "./utils";
+import { clearFrozenTileCache } from "./tileManager";
 
 /** Manages the template system.
  * This class handles all external requests for template modification, creation, and analysis.
@@ -66,6 +67,9 @@ export default class TemplateManager {
     // Wrong Color Options
     this.includeWrongColorsInProgress = false; // Include wrong color pixels in progress calculation
     this.enhanceWrongColors = false; // Use crosshair enhance on wrong colors
+    
+    // Load wrong color settings from storage on initialization
+    this.loadWrongColorSettings();
     
     // Template
     this.canvasTemplate = null; // Our canvas
@@ -291,12 +295,6 @@ export default class TemplateManager {
    * @since 0.72.7
    */
   async #storeTemplates() {
-    // Debug logging before storage
-    console.log('🔍 Debug - #storeTemplates called:');
-    console.log('  - this.templatesJSON:', this.templatesJSON);
-    console.log('  - typeof this.templatesJSON:', typeof this.templatesJSON);
-    console.log('  - is null/undefined:', this.templatesJSON == null);
-    
     if (!this.templatesJSON) {
       console.error('❌ Cannot store templates: this.templatesJSON is null/undefined');
       return;
@@ -304,12 +302,6 @@ export default class TemplateManager {
     
     const data = JSON.stringify(this.templatesJSON);
     const timestamp = Date.now();
-    
-    console.log('🔍 Debug - Data to store:');
-    console.log('  - JSON string length:', data.length);
-    console.log('  - First 200 chars:', data.substring(0, 200));
-    console.log('  - Contains whoami:', data.includes('"whoami"'));
-    console.log('  - Contains templates:', data.includes('"templates"'));
     
     // Try TamperMonkey storage first
     try {
@@ -386,20 +378,64 @@ export default class TemplateManager {
    * @param {string} templateKey - The key of the template to delete (e.g., "0 $Z")
    * @since 1.0.0
    */
-  deleteTemplate(templateKey) {
+  async deleteTemplate(templateKey) {
     if (!templateKey || !this.templatesJSON?.templates) {
       consoleWarn('⚠️ Invalid template key or no templates available');
       return false;
     }
 
     try {
-      // Remove from JSON
-      if (this.templatesJSON.templates[templateKey]) {
-        delete this.templatesJSON.templates[templateKey];
-        consoleLog(`🗑️ Removed template ${templateKey} from JSON`);
+      consoleLog(`🗑️ Starting complete deletion of template: ${templateKey}`);
+
+      // Get template reference before deletion for cleanup
+      const templateToDelete = this.templatesArray.find(template => {
+        const templateKeyFromInstance = `${template.sortID} ${template.authorID}`;
+        return templateKeyFromInstance === templateKey;
+      });
+
+      // COMPLETE CLEANUP: Clear all template-related caches and data
+      
+      // 1. Clear template's own caches (enhanced tiles, etc.)
+      if (templateToDelete) {
+        // Clear enhanced tiles cache
+        if (templateToDelete.enhancedTilesCache) {
+          templateToDelete.enhancedTilesCache.clear();
+          consoleLog(`🧹 Cleared enhanced tiles cache for ${templateKey}`);
+        }
+        
+        // Dispose of template's chunked bitmaps to free memory
+        if (templateToDelete.chunked) {
+          for (const [tileKey, bitmap] of Object.entries(templateToDelete.chunked)) {
+            if (bitmap && typeof bitmap.close === 'function') {
+              try {
+                bitmap.close(); // Free GPU memory
+              } catch (e) {
+                // Bitmap already disposed or doesn't support close
+              }
+            }
+          }
+          consoleLog(`🧹 Disposed template bitmaps for ${templateKey}`);
+        }
       }
 
-      // Remove from templatesArray
+      // 2. Clear tile progress cache to remove any cached data from this template
+      this.clearTileProgressCache();
+      consoleLog(`🧹 Cleared tile progress cache`);
+
+      // 3. Clear any frozen tile cache from tileManager
+      try {
+        clearFrozenTileCache();
+      } catch (error) {
+        consoleLog(`🧹 Attempted to clear frozen tile cache (${error.message})`);
+      }
+
+      // 4. Remove from JSON storage
+      if (this.templatesJSON.templates[templateKey]) {
+        delete this.templatesJSON.templates[templateKey];
+        consoleLog(`🗑️ Removed template ${templateKey} from JSON storage`);
+      }
+
+      // 5. Remove from templatesArray
       const templateIndex = this.templatesArray.findIndex(template => {
         const templateKeyFromInstance = `${template.sortID} ${template.authorID}`;
         return templateKeyFromInstance === templateKey;
@@ -407,29 +443,44 @@ export default class TemplateManager {
 
       if (templateIndex !== -1) {
         this.templatesArray.splice(templateIndex, 1);
-        consoleLog(`🗑️ Removed template ${templateKey} from array`);
+        consoleLog(`🗑️ Removed template ${templateKey} from memory array`);
       }
 
-      // Update JSON metadata after deletion
+      // 6. Update JSON metadata after deletion
       this.templatesJSON.lastModified = new Date().toISOString();
       this.templatesJSON.templateCount = Object.keys(this.templatesJSON.templates).length;
       this.templatesJSON.totalPixels = this.templatesArray.reduce((total, t) => total + (t.pixelCount || 0), 0);
 
-      // Save updated templates to storage
-      this.#storeTemplates();
+      // 7. Save updated templates to BOTH storages to ensure complete removal
+      await this.#storeTemplates();
+      consoleLog(`💾 Updated both TamperMonkey and localStorage`);
 
-      // Force refresh template display to clear any visual templates
+      // 8. Force complete template display refresh to clear any visual artifacts
       if (typeof refreshTemplateDisplay === 'function') {
-        refreshTemplateDisplay().catch(error => {
+        try {
+          await refreshTemplateDisplay();
+          consoleLog(`🖼️ Template display refreshed`);
+        } catch (error) {
           consoleWarn('Warning: Failed to refresh template display:', error);
-        });
+        }
       }
 
-      // Update mini tracker to reflect changes
+      // 9. Update mini tracker to reflect changes
       if (typeof updateMiniTracker === 'function') {
         updateMiniTracker();
+        consoleLog(`📊 Mini tracker updated`);
       }
 
+      // 10. Force garbage collection hint (if available)
+      if (typeof window.gc === 'function') {
+        try {
+          window.gc();
+        } catch (e) {
+          // GC not available, ignore
+        }
+      }
+
+      consoleLog(`✅ Template ${templateKey} completely deleted and all related data cleaned`);
       return true;
     } catch (error) {
       consoleError('❌ Failed to delete template:', error);
@@ -458,10 +509,7 @@ export default class TemplateManager {
     // Returns early if no templates should be drawn
     if (!this.templatesShouldBeDrawn) {return tileBlob;}
 
-    // Load wrong color settings if not already loaded
-    if (this.includeWrongColorsInProgress === undefined) {
-      this.loadWrongColorSettings();
-    }
+    // Wrong color settings are now loaded in constructor, no need to check here
 
     const drawSize = this.tileSize * this.drawMult; // Calculate draw multiplier for scaling
 
@@ -542,11 +590,16 @@ export default class TemplateManager {
       const totalPixels = templateArray
         .filter(template => {
           // Filter templates to include only those with tiles matching current coordinates
-          // This ensures we count pixels only for templates actually being rendered
+          // AND that are enabled (not disabled)
           const matchingTiles = Object.keys(template.chunked).filter(tile =>
             tile.startsWith(tileCoords)
           );
-          return matchingTiles.length > 0;
+          
+          // Check if template is enabled
+          const templateKey = `${template.sortID} ${template.authorID}`;
+          const isEnabled = this.isTemplateEnabled(templateKey);
+          
+          return matchingTiles.length > 0 && isEnabled;
         })
         .reduce((sum, template) => sum + (template.pixelCount || 0), 0);
       
@@ -1301,19 +1354,7 @@ export default class TemplateManager {
   importJSON(json) {
 
     console.log(`Importing JSON...`);
-    console.log(json);
-
-
-
-    // Debug logging
-    console.log('🔍 Debug - importJSON analysis:');
-    console.log('  - Input type:', typeof json);
-    console.log('  - Input is null/undefined:', json == null);
-    console.log('  - Has whoami property:', json?.hasOwnProperty?.('whoami'));
-    console.log('  - whoami value:', JSON.stringify(json?.whoami));
-    console.log('  - whoami comparison:', json?.whoami, '==', 'SkirkMarble', '→', json?.whoami == 'SkirkMarble');
-    console.log('  - Has templates:', !!json?.templates);
-    console.log('  - Templates count:', json?.templates ? Object.keys(json.templates).length : 'N/A');
+    // Minimal logging for performance during template loading
 
     // If the passed in JSON is a Blue Marble template object...
     // Accept both legacy 'SkirkMarble' and current 'BlueMarble' whoami values
@@ -1340,7 +1381,6 @@ export default class TemplateManager {
     
     // *** FIX: Restore templatesJSON from loaded data ***
     this.templatesJSON = json;
-    console.log('🔍 Debug - templatesJSON restored:', this.templatesJSON);
 
     const templates = json.templates;
 
@@ -1352,8 +1392,6 @@ export default class TemplateManager {
 
         const templateKey = template;
         const templateValue = templates[template];
-        console.log(templateKey);
-
         if (templates.hasOwnProperty(template)) {
 
           const templateKeyArray = templateKey.split(' '); // E.g., "0 $Z" -> ["0", "$Z"]
@@ -1361,52 +1399,21 @@ export default class TemplateManager {
           const authorID = templateKeyArray?.[1] || '0'; // User ID of the person who exported the template
           const displayName = templateValue.name || `Template ${sortID || ''}`; // Display name of the template
           const coords = templateValue?.coords?.split(', ').map(Number); // "1, 2, 3, 4" -> [1, 2, 3, 4]
-          console.log(`🔍 Debug - Loading template "${displayName}" with coords:`, coords);
           const tilesbase64 = templateValue.tiles;
           const templateTiles = {}; // Stores the template bitmap tiles for each tile.
           let totalPixelCount = 0; // Calculate total pixels across all tiles
 
-          for (const tile in tilesbase64) {
-            console.log(tile);
-            if (tilesbase64.hasOwnProperty(tile)) {
-              const encodedTemplateBase64 = tilesbase64[tile];
-              const templateUint8Array = base64ToUint8(encodedTemplateBase64); // Base 64 -> Uint8Array
-
-              const templateBlob = new Blob([templateUint8Array], { type: "image/png" }); // Uint8Array -> Blob
-              const templateBitmap = await createImageBitmap(templateBlob) // Blob -> Bitmap
-              templateTiles[tile] = templateBitmap;
-              
-              // Count pixels in this tile (only center pixels of 3x3 blocks matter)
-              try {
-                const canvas = document.createElement('canvas');
-                canvas.width = templateBitmap.width;
-                canvas.height = templateBitmap.height;
-                const ctx = canvas.getContext('2d');
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(templateBitmap, 0, 0);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-                
-                for (let y = 0; y < canvas.height; y++) {
-                  for (let x = 0; x < canvas.width; x++) {
-                    // Only count center pixels (same logic as template creation)
-                    if (x % this.drawMult !== 1 || y % this.drawMult !== 1) {
-                      continue;
-                    }
-                    
-                    const i = (y * canvas.width + x) * 4;
-                    const alpha = data[i + 3];
-                    
-                    // Count non-transparent pixels
-                    if (alpha > 0) {
-                      totalPixelCount++;
-                    }
-                  }
-                }
-              } catch (error) {
-                console.warn('Failed to count pixels for tile:', tile, error);
-              }
-            }
+          // Process tiles in parallel for better performance
+          const tilePromises = Object.entries(tilesbase64).map(async ([tile, encodedTemplateBase64]) => {
+            const templateUint8Array = base64ToUint8(encodedTemplateBase64); // Base 64 -> Uint8Array
+            const templateBlob = new Blob([templateUint8Array], { type: "image/png" }); // Uint8Array -> Blob
+            const templateBitmap = await createImageBitmap(templateBlob) // Blob -> Bitmap
+            return [tile, templateBitmap];
+          });
+          
+          const processedTiles = await Promise.all(tilePromises);
+          for (const [tile, bitmap] of processedTiles) {
+            templateTiles[tile] = bitmap;
           }
 
           // Creates a new Template class instance
@@ -1417,7 +1424,8 @@ export default class TemplateManager {
             coords: coords
           });
           template.chunked = templateTiles;
-          template.pixelCount = totalPixelCount; // Set the calculated pixel count
+          // Restore pixel count from stored data for fast loading
+          template.pixelCount = templateValue.pixelCount || 0;
           
           // Load disabled colors if they exist
           const disabledColors = templateValue.disabledColors;
@@ -1431,19 +1439,12 @@ export default class TemplateManager {
             template.setEnhancedColors(enhancedColors);
           }
           
-          // Load wrong color settings if they exist
-          if (templateValue.includeWrongColorsInProgress !== undefined) {
-            this.includeWrongColorsInProgress = templateValue.includeWrongColorsInProgress;
-            console.log(`🎯 [Template Load] Restored includeWrongColorsInProgress: ${this.includeWrongColorsInProgress}`);
-          }
-          if (templateValue.enhanceWrongColors !== undefined) {
-            this.enhanceWrongColors = templateValue.enhanceWrongColors;
-            console.log(`🎯 [Template Load] Restored enhanceWrongColors: ${this.enhanceWrongColors}`);
-          }
+          // Wrong color settings are now managed globally, not per template
+          // These settings should not be overridden during template loading
+          // The settings are loaded from storage in the constructor and should persist
           
           this.templatesArray.push(template);
-          console.log(this.templatesArray);
-          console.log(`^^^ This ^^^`);
+          // Template loaded successfully
         }
       }
     }
@@ -1600,9 +1601,7 @@ export default class TemplateManager {
           // ONLY save the color settings, keep original tiles unchanged
           this.templatesJSON.templates[templateKey].disabledColors = template.getDisabledColors();
           this.templatesJSON.templates[templateKey].enhancedColors = template.getEnhancedColors();
-          // Also save wrong color settings as part of template data
-          this.templatesJSON.templates[templateKey].includeWrongColorsInProgress = this.includeWrongColorsInProgress;
-          this.templatesJSON.templates[templateKey].enhanceWrongColors = this.enhanceWrongColors;
+          // Wrong color settings are now managed globally, not saved per template
           consoleLog('JSON updated with new filter settings (settings only, tiles unchanged)');
         }
       }
@@ -2380,14 +2379,8 @@ export default class TemplateManager {
     this.includeWrongColorsInProgress = include;
     console.log(`🎯 [Wrong Colors] Include wrong colors in progress: ${include}`);
     
-    // Save to template data (same way as enhanced colors)
-    try {
-      await this.updateTemplateWithColorFilter();
-      console.log(`🎯 [Wrong Colors] Settings saved to template data`);
-    } catch (error) {
-      console.warn(`🎯 [Wrong Colors] Failed to save to template data, using fallback:`, error);
-      this.saveWrongColorSettings(); // Fallback
-    }
+    // Always save to storage directly - simpler and more reliable
+    this.saveWrongColorSettings();
   }
 
   /** Gets whether wrong colors should be included in progress calculation
@@ -2395,7 +2388,6 @@ export default class TemplateManager {
    * @since 1.0.0
    */
   getIncludeWrongColorsInProgress() {
-    // console.log(`🎯 [Debug] getIncludeWrongColorsInProgress returning: ${this.includeWrongColorsInProgress}`);
     return this.includeWrongColorsInProgress;
   }
 
@@ -2407,24 +2399,18 @@ export default class TemplateManager {
     this.enhanceWrongColors = enhance;
     console.log(`🎯 [Wrong Colors] Enhance wrong colors: ${enhance}`);
     
-    // Save to template data (same way as enhanced colors)
-    try {
-      await this.updateTemplateWithColorFilter();
-      console.log(`🎯 [Wrong Colors] Settings saved to template data`);
-    } catch (error) {
-      console.warn(`🎯 [Wrong Colors] Failed to save to template data, using fallback:`, error);
-      this.saveWrongColorSettings(); // Fallback
-    }
+    // Always save to storage directly - simpler and more reliable
+    this.saveWrongColorSettings();
     
-         // Clear debug logs when toggling
-     this._loggedWrongColors = new Set();
-     this._loggedEnhancedPixels = new Set();
-     this._wrongPixelsToEnhance = null;
-     this._loggedWrongEnhanced = false;
+    // Clear debug logs when toggling
+    this._loggedWrongColors = new Set();
+    this._loggedEnhancedPixels = new Set();
+    this._wrongPixelsToEnhance = null;
+    this._loggedWrongEnhanced = false;
     
     // Force template redraw to apply enhanced mode changes
     if (this.templatesArray && this.templatesArray.length > 0) {
-      consoleLog(`🎯 [Wrong Colors] Forcing template redraw to apply enhanced mode changes`);
+      console.log(`🎯 [Wrong Colors] Forcing template redraw to apply enhanced mode changes`);
       this.setTemplatesShouldBeDrawn(false);
       setTimeout(() => {
         this.setTemplatesShouldBeDrawn(true);
@@ -2459,33 +2445,43 @@ export default class TemplateManager {
    */
   loadWrongColorSettings() {
     try {
-      console.log(`🎯 [Debug] Loading wrong color settings...`);
-      console.log(`🎯 [Debug] Before loading - Include: ${this.includeWrongColorsInProgress}, Enhance: ${this.enhanceWrongColors}`);
-      
       // Try TamperMonkey storage first
       if (typeof GM_getValue !== 'undefined') {
-        const includeWrong = GM_getValue('bmIncludeWrongColors', false);
-        const enhanceWrong = GM_getValue('bmEnhanceWrongColors', false);
-        console.log(`🎯 [Debug] TamperMonkey values - Include: ${includeWrong}, Enhance: ${enhanceWrong}`);
-        this.includeWrongColorsInProgress = includeWrong;
-        this.enhanceWrongColors = enhanceWrong;
-        console.log(`🎯 [Wrong Colors] Loaded settings from TamperMonkey - Include: ${includeWrong}, Enhance: ${enhanceWrong}`);
-        return;
+        const includeWrongRaw = GM_getValue('bmIncludeWrongColors', null);
+        const enhanceWrongRaw = GM_getValue('bmEnhanceWrongColors', null);
+        
+        // Check if TamperMonkey has valid values (not null and not 'null' string)
+        const hasValidInclude = includeWrongRaw !== null && includeWrongRaw !== 'null';
+        const hasValidEnhance = enhanceWrongRaw !== null && enhanceWrongRaw !== 'null';
+        
+        if (hasValidInclude) {
+          this.includeWrongColorsInProgress = JSON.parse(includeWrongRaw);
+        }
+        if (hasValidEnhance) {
+          this.enhanceWrongColors = JSON.parse(enhanceWrongRaw);
+        }
+        
+        // Only return if BOTH values were found in TamperMonkey
+        if (hasValidInclude && hasValidEnhance) {
+          return;
+        }
       }
       
       // Fallback to localStorage
       const includeWrongRaw = localStorage.getItem('bmIncludeWrongColors');
       const enhanceWrongRaw = localStorage.getItem('bmEnhanceWrongColors');
-      console.log(`🎯 [Debug] localStorage raw values - Include: '${includeWrongRaw}', Enhance: '${enhanceWrongRaw}'`);
       
-      const includeWrong = includeWrongRaw === 'true';
-      const enhanceWrong = enhanceWrongRaw === 'true';
-      this.includeWrongColorsInProgress = includeWrong;
-      this.enhanceWrongColors = enhanceWrong;
-      console.log(`🎯 [Wrong Colors] Loaded settings from localStorage - Include: ${includeWrong}, Enhance: ${enhanceWrong}`);
-      console.log(`🎯 [Debug] After loading - Include: ${this.includeWrongColorsInProgress}, Enhance: ${this.enhanceWrongColors}`);
+      if (includeWrongRaw !== null) {
+        this.includeWrongColorsInProgress = JSON.parse(includeWrongRaw);
+      }
+      if (enhanceWrongRaw !== null) {
+        this.enhanceWrongColors = JSON.parse(enhanceWrongRaw);
+      }
     } catch (error) {
-      console.warn('Failed to load wrong color settings:', error);
+      console.error('❌ [Wrong Colors] Error loading settings:', error);
+      // If there's an error parsing, reset to defaults
+      this.includeWrongColorsInProgress = false;
+      this.enhanceWrongColors = false;
     }
   }
 
@@ -2494,22 +2490,18 @@ export default class TemplateManager {
    */
   saveWrongColorSettings() {
     try {
-      console.log(`🎯 [Debug] Saving wrong color settings - Include: ${this.includeWrongColorsInProgress}, Enhance: ${this.enhanceWrongColors}`);
-      
       // Try TamperMonkey storage first
       if (typeof GM_setValue !== 'undefined') {
-        GM_setValue('bmIncludeWrongColors', this.includeWrongColorsInProgress);
-        GM_setValue('bmEnhanceWrongColors', this.enhanceWrongColors);
-        console.log(`🎯 [Wrong Colors] Settings saved to TamperMonkey storage - Include: ${this.includeWrongColorsInProgress}, Enhance: ${this.enhanceWrongColors}`);
+        GM_setValue('bmIncludeWrongColors', JSON.stringify(this.includeWrongColorsInProgress));
+        GM_setValue('bmEnhanceWrongColors', JSON.stringify(this.enhanceWrongColors));
         return;
       }
       
       // Fallback to localStorage
-      localStorage.setItem('bmIncludeWrongColors', this.includeWrongColorsInProgress.toString());
-      localStorage.setItem('bmEnhanceWrongColors', this.enhanceWrongColors.toString());
-      console.log(`🎯 [Wrong Colors] Settings saved to localStorage - Include: ${this.includeWrongColorsInProgress}, Enhance: ${this.enhanceWrongColors}`);
+      localStorage.setItem('bmIncludeWrongColors', JSON.stringify(this.includeWrongColorsInProgress));
+      localStorage.setItem('bmEnhanceWrongColors', JSON.stringify(this.enhanceWrongColors));
     } catch (error) {
-      console.error('Failed to save wrong color settings:', error);
+      console.error('❌ [Wrong Colors] Failed to save settings:', error);
     }
   }
 
@@ -2560,7 +2552,7 @@ export default class TemplateManager {
        const selectedColors = Array.from(template.enhancedColors);
        
        if (selectedColors.length === 0) {
-         console.log(`🎯 [Wrong Color Enhancement] No colors selected for enhancement`);
+        //  console.log(`🎯 [Wrong Color Enhancement] No colors selected for enhancement`);
          return wrongPixels;
        }
        
