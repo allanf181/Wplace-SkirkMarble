@@ -72,6 +72,7 @@ const resultEsbuild = await esbuild.build({
   legalComments: 'inline', // What level of legal comments are preserved? (Hard: none, Soft: inline)
   minify: false, // Should the code be minified?
   write: false, // Should we write the outfile to the disk?
+  //keepNames: true
 }).catch(() => process.exit(1));
 
 // Retrieves the JS file
@@ -84,11 +85,11 @@ let resultTerser = await terser.minify(resultEsbuildJS.text, {
     keep_classnames: false, // Should class names be preserved?
     keep_fnames: false, // Should function names be preserved?
     reserved: [], // List of keywords to preserve
-    properties: {
-      // regex: /.*/, // Yes, I am aware I should be using a RegEx. Yes, like you, I am also suprised the userscript still functions
-      keep_quoted: true, // Should names in quotes be preserved?
-      reserved: [] // What properties should be preserved?
-    },
+    // properties: {
+    //   // regex: /.*/, // Yes, I am aware I should be using a RegEx. Yes, like you, I am also suprised the userscript still functions
+    //   keep_quoted: true, // Should names in quotes be preserved?
+    //   reserved: [] // What properties should be preserved?
+    // },
   },
   format: {
     comments: 'some' // Save legal comments
@@ -134,8 +135,8 @@ if (mapCSS) {
 
 // Adds the banner
 fs.writeFileSync(
-  'dist/BlueMarble.user.js', 
-  metaContent + fs.readFileSync('dist/BlueMarble.user.js', 'utf8'), 
+  'dist/BlueMarble.user.js',
+  metaContent + fs.readFileSync('dist/BlueMarble.user.js', 'utf8'),
   'utf8'
 );
 
